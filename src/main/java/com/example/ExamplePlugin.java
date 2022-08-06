@@ -1,53 +1,87 @@
 package com.example;
 
-import com.google.inject.Provides;
-import javax.inject.Inject;
-import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
-import net.runelite.api.GameState;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.client.config.ConfigManager;
+import net.runelite.api.events.GameTick;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 
-@Slf4j
+import javax.inject.Inject;
+import java.awt.event.KeyEvent;
+import java.util.Random;
+import java.util.concurrent.Executors;
+
+import static java.awt.event.InputEvent.BUTTON1_DOWN_MASK;
+
+@Extension
 @PluginDescriptor(
-	name = "Example"
+		name = "JFKMI",
+		description = "JFMKI",
+		tags = "..."
 )
+@SuppressWarnings("ALL")
 public class ExamplePlugin extends Plugin
 {
 	@Inject
 	private Client client;
 
-	@Inject
-	private ExampleConfig config;
+	private final Random random = new Random();
+	private long randomDelay;
 
 	@Override
-	protected void startUp() throws Exception
+	protected void startUp()
 	{
-		log.info("Example started!");
+		randomDelay = randomDelay();
 	}
 
 	@Override
-	protected void shutDown() throws Exception
+	protected void shutDown()
 	{
-		log.info("Example stopped!");
+
 	}
 
 	@Subscribe
-	public void onGameStateChanged(GameStateChanged gameStateChanged)
+	public void onGameTick(GameTick event)
 	{
-		if (gameStateChanged.getGameState() == GameState.LOGGED_IN)
+		if (checkIdleLogout())
 		{
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Example says " + config.greeting(), null);
+			randomDelay = randomDelay();
+			Executors.newSingleThreadExecutor()
+					.submit(this::pressKey);
 		}
 	}
 
-	@Provides
-	ExampleConfig provideConfig(ConfigManager configManager)
+	private boolean checkIdleLogout()
 	{
-		return configManager.getConfig(ExampleConfig.class);
+		int idleClientTicks = client.getKeyboardIdleTicks();
+
+		if (client.getMouseIdleTicks() < idleClientTicks)
+		{
+			idleClientTicks = client.getMouseIdleTicks();
+		}
+
+		return idleClientTicks >= randomDelay;
+	}
+
+	private long randomDelay()
+	{
+		return (long) clamp(
+				Math.round(random.nextGaussian() * 8000)
+		);
+	}
+
+	private static double clamp(double val)
+	{
+		return Math.max(1, Math.min(13000, val));
+	}
+
+	private void pressKey()
+	{
+		KeyEvent keyPress = new KeyEvent(this.client.getCanvas(), KeyEvent.KEY_PRESSED, System.currentTimeMillis(), BUTTON1_DOWN_MASK, KeyEvent.VK_BACK_SPACE);
+		this.client.getCanvas().dispatchEvent(keyPress);
+		KeyEvent keyRelease = new KeyEvent(this.client.getCanvas(), KeyEvent.KEY_RELEASED, System.currentTimeMillis(), 0, KeyEvent.VK_BACK_SPACE);
+		this.client.getCanvas().dispatchEvent(keyRelease);
+		KeyEvent keyTyped = new KeyEvent(this.client.getCanvas(), KeyEvent.KEY_TYPED, System.currentTimeMillis(), 0, KeyEvent.VK_BACK_SPACE);
+		this.client.getCanvas().dispatchEvent(keyTyped);
 	}
 }
